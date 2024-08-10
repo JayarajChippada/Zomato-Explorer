@@ -2,23 +2,25 @@ import { errorHandler } from '../utils/errorHandler.js';
 import Restaurant from '../models/restaurant.model.js';
 import Country from '../models/country.model.js';
 
-export const getRestaurantById = async(req, res, next) => {
-    try{
-        const restaurant = await Restaurant.findOne({restaurantId: req.params.id});
-        if(!restaurant) {
+// Get restaurant by ID
+export const getRestaurantById = async (req, res, next) => {
+    try {
+        const restaurant = await Restaurant.findOne({ restaurantId: req.params.restaurantId });
+        if (!restaurant) {
             return next(errorHandler(404, "Restaurant not found"));
         }
         res.status(200).json(restaurant);
-    } catch(err) {
+    } catch (err) {
         next(err);
     }
-}
+};
 
-export const getRestaurants = async(req, res, next) => {
-    try{
-        const page = (req.query.page) || 1;
-        const limit = (req.query.limit) || 10;
-        const skip = (page-1)*limit;
+// Get paginated list of restaurants
+export const getRestaurants = async (req, res, next) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
 
         const restaurants = await Restaurant.find().skip(skip).limit(limit);
         const totalCount = await Restaurant.countDocuments();
@@ -29,11 +31,12 @@ export const getRestaurants = async(req, res, next) => {
             limit,
             data: restaurants
         });
-    } catch(err) {
+    } catch (err) {
         next(err);
     }
-}
+};
 
+// Calculate haversine distance between two points
 const haversineDistance = (lat1, lon1, lat2, lon2) => {
     const R = 6371000; // Radius of the Earth in meters
     const φ1 = lat1 * (Math.PI / 180);
@@ -47,7 +50,7 @@ const haversineDistance = (lat1, lon1, lat2, lon2) => {
     return R * c; // Distance in meters
 };
 
-// Calculate the bounding box for a given radius
+// Calculate bounding box for a given radius
 const calculateBoundingBox = (lat, lng, radius) => {
     const R = 6371000; // Radius of Earth in meters
     const latRad = lat * (Math.PI / 180);
@@ -69,14 +72,15 @@ const calculateBoundingBox = (lat, lng, radius) => {
     };
 };
 
-export const searchRestaurantsByLocation = async(req, res, next) => {
-    try{
+// Search restaurants by location within a radius
+export const searchRestaurantsByLocation = async (req, res, next) => {
+    try {
         const { lat, long } = req.query;
         const radiusInKm = parseFloat(req.query.radius) || 3;
         const radiusInMeters = radiusInKm * 1000;
 
-        if(!lat || !long ||  lat === "" || long === "" ) {
-            return next(errorHandler(400, "Latitude, Longitude are required"));
+        if (!lat || !long || isNaN(lat) || isNaN(long)) {
+            return next(errorHandler(400, "Valid latitude and longitude are required"));
         }
 
         const latitude = parseFloat(lat);
@@ -85,75 +89,78 @@ export const searchRestaurantsByLocation = async(req, res, next) => {
         // Calculate bounding box
         const { minLat, maxLat, minLng, maxLng } = calculateBoundingBox(latitude, longitude, radiusInMeters);
 
-
         const restaurants = await Restaurant.find({
             latitude: { $gte: minLat, $lte: maxLat },
             longitude: { $gte: minLng, $lte: maxLng }
         }).exec();
 
         // Filter results by distance to ensure they are within the radius
-        const filteredRestaurants = restaurants.filter(restaurant => 
+        const filteredRestaurants = restaurants.filter(restaurant =>
             haversineDistance(latitude, longitude, restaurant.latitude, restaurant.longitude) <= radiusInMeters
         );
 
-        if(filteredRestaurants.length === 0) res.status(200).json({
-            message: "No restaurants found!"
-        })
-        res.status(200).json(filteredRestaurants);
-    } catch(err) {
-        next(err);
-    }
-}
-
-export const filterRestaurantsByCountry = async(req, res, next) => {
-    try{
-        const countryCode = req.params.countryId;
-        if(!countryCode) {
-            return next(errorHandler(400, "Country code is required"));
+        if (filteredRestaurants.length === 0) {
+            return res.status(200).json({ message: "No restaurants found!" });
         }
 
-        const country = await Country.findOne({ code: countryCode });
+        res.status(200).json(filteredRestaurants);
+    } catch (err) {
+        next(err);
+    }
+};
+
+// Filter restaurants by country
+export const filterRestaurantsByCountry = async (req, res, next) => {
+    try {
+        const country = await Country.findOne({ code: req.params.code });
 
         if (!country) {
             return next(errorHandler(404, 'Country not found for this code'));
         }
 
-         const restaurants = await Restaurant.find({ country: country._id }).exec();
+        const restaurants = await Restaurant.find({ country: country._id }).exec();
 
         if (restaurants.length === 0) {
-            return next(errorHandler(404, 'No restaurants found for this country'));
+            return next(errorHandler(404, 'No restaurants found!'));
         }
 
         res.status(200).json({
             country: country.name,
             restaurants
         });
-    } catch(err) {
+    } catch (err) {
         next(err);
     }
-}
+};
 
-export const getRestaurantsByAverageCost = async(req, res, next) => {
-    try{
-        const restaurants = await Restaurant.find({ averageCostForTwo: req.params.avgCost });
+// Get restaurants by average cost
+export const getRestaurantsByAverageCost = async (req, res, next) => {
+    try {
+        const avgCost = parseFloat(req.params.avgCost);
+        if (isNaN(avgCost)) {
+            return next(errorHandler(400, 'Average cost must be a number'));
+        }
+
+        const restaurants = await Restaurant.find({ averageCostForTwo: avgCost });
         if (restaurants.length === 0) {
-            return next(errorHandler(404, 'No restaurants found for this country'));
+            return next(errorHandler(404, 'No restaurants found!'));
         }
         res.status(200).json(restaurants);
-    } catch(err) {
+    } catch (err) {
         next(err);
     }
-}
+};
 
+// Get restaurants by cuisines
 export const getRestaurantsByCuisines = async (req, res, next) => {
     try {
-        const { query } = req.query;
+        const { cuisine } = req.query;
 
-        if (!query) {
+        if (!cuisine) {
             return res.status(400).json({ message: 'Cuisines parameter is required' });
         }
 
-        const cuisinesArray = query.split(',').map(cuisine => cuisine.trim());
+        const cuisinesArray = cuisine.split(',').map(cuisine => cuisine.trim());
 
         const restaurants = await Restaurant.find({
             cuisines: { $in: cuisinesArray }
@@ -169,27 +176,30 @@ export const getRestaurantsByCuisines = async (req, res, next) => {
     }
 };
 
+// Search restaurants by various fields
 export const searchRestaurants = async (req, res, next) => {
     try {
-        const { query } = req.query;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
 
-        if (!query) {
-            return res.status(400).json({ message: 'Search query is required' });
-        }
-
-        const regex = new RegExp(query, 'i'); 
+        const searchTerm = req.query.searchTerm ? req.query.searchTerm.trim() : '';
 
         const restaurants = await Restaurant.find({
-            $or: [
-                { name: { $regex: regex } }
-            ]
-        }).exec();
+            ...(searchTerm && { 
+                $or: [
+                    { name: { $regex: searchTerm, $options: 'i' } },
+                    { city: { $regex: searchTerm, $options: 'i' } },
+                    { locality: { $regex: searchTerm, $options: 'i' } },
+                    { localityVerbose: { $regex: searchTerm, $options: 'i' } },
+                ]
+             }),
+        }).skip(skip).limit(limit);
 
         if (restaurants.length === 0) {
             return next(errorHandler(404, 'No restaurants found matching the search query'));
         }
 
-        // Send the results
         res.status(200).json(restaurants);
     } catch (err) {
         next(err);

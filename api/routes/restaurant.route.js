@@ -11,12 +11,12 @@ import {
 
 const router = express.Router();
 
-router.get('/:id', getRestaurantById);
-router.get('/', getRestaurants);
-router.get('/search/location', searchRestaurantsByLocation)
-router.get('/filter/country/:countryId', filterRestaurantsByCountry)
-router.get('/filter/spend/:avgCost', getRestaurantsByAverageCost)
-router.get('/filter/cuisines', getRestaurantsByCuisines)
+router.get('/search/location', searchRestaurantsByLocation);
+router.get('/filter/country/:code', filterRestaurantsByCountry);
+router.get('/filter/spend/:avgCost', getRestaurantsByAverageCost);
+router.get('/filter/cuisines', getRestaurantsByCuisines);
 router.get('/search', searchRestaurants);
+router.get('/:restaurantId', getRestaurantById);  // Less specific routes after more specific ones
+router.get('/', getRestaurants);
 
 export default router;
