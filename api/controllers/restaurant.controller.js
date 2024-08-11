@@ -2,6 +2,19 @@ import { errorHandler } from '../utils/errorHandler.js';
 import Restaurant from '../models/restaurant.model.js';
 import Country from '../models/country.model.js';
 
+// Helper function to replace country ID with country name
+const replaceCountryIdWithName = async (restaurant) => {
+    if (restaurant.location && restaurant.location.country) {
+        const country = await Country.findById(restaurant.location.country);
+        if (country) {
+            restaurant.location.country = country.name;
+        } else {
+            restaurant.location.country = 'Unknown';
+        }
+    }
+    return restaurant;
+};
+
 // Get restaurant by ID
 export const getRestaurantById = async (req, res, next) => {
     try {
@@ -9,7 +22,9 @@ export const getRestaurantById = async (req, res, next) => {
         if (!restaurant) {
             return next(errorHandler(404, "Restaurant not found"));
         }
-        res.status(200).json(restaurant);
+        // Replace country ID with country name
+        const restaurantWithCountryName = await replaceCountryIdWithName(restaurant.toObject());
+        res.status(200).json(restaurantWithCountryName);
     } catch (err) {
         next(err);
     }
@@ -25,11 +40,16 @@ export const getRestaurants = async (req, res, next) => {
         const restaurants = await Restaurant.find().skip(skip).limit(limit);
         const totalCount = await Restaurant.countDocuments();
 
+        // Replace country ID with country name for each restaurant
+        const restaurantsWithCountryName = await Promise.all(restaurants.map(async restaurant => 
+            replaceCountryIdWithName(restaurant.toObject())
+        ));
+
         res.status(200).json({
             totalCount,
             page,
             limit,
-            data: restaurants
+            data: restaurantsWithCountryName
         });
     } catch (err) {
         next(err);
@@ -90,20 +110,25 @@ export const searchRestaurantsByLocation = async (req, res, next) => {
         const { minLat, maxLat, minLng, maxLng } = calculateBoundingBox(latitude, longitude, radiusInMeters);
 
         const restaurants = await Restaurant.find({
-            latitude: { $gte: minLat, $lte: maxLat },
-            longitude: { $gte: minLng, $lte: maxLng }
+            "location.latitude": { $gte: minLat, $lte: maxLat },
+            "location.longitude": { $gte: minLng, $lte: maxLng }
         }).exec();
 
         // Filter results by distance to ensure they are within the radius
         const filteredRestaurants = restaurants.filter(restaurant =>
-            haversineDistance(latitude, longitude, restaurant.latitude, restaurant.longitude) <= radiusInMeters
+            haversineDistance(latitude, longitude, restaurant.location.latitude, restaurant.location.longitude) <= radiusInMeters
         );
 
-        if (filteredRestaurants.length === 0) {
+        // Replace country ID with country name for each restaurant
+        const restaurantsWithCountryName = await Promise.all(filteredRestaurants.map(async restaurant => 
+            replaceCountryIdWithName(restaurant.toObject())
+        ));
+
+        if (restaurantsWithCountryName.length === 0) {
             return res.status(200).json({ message: "No restaurants found!" });
         }
 
-        res.status(200).json(filteredRestaurants);
+        res.status(200).json(restaurantsWithCountryName);
     } catch (err) {
         next(err);
     }
@@ -118,15 +143,20 @@ export const filterRestaurantsByCountry = async (req, res, next) => {
             return next(errorHandler(404, 'Country not found for this code'));
         }
 
-        const restaurants = await Restaurant.find({ country: country._id }).exec();
+        const restaurants = await Restaurant.find({ "location.country": country._id }).exec();
 
-        if (restaurants.length === 0) {
+        // Replace country ID with country name for each restaurant
+        const restaurantsWithCountryName = await Promise.all(restaurants.map(async restaurant => 
+            replaceCountryIdWithName(restaurant.toObject())
+        ));
+
+        if (restaurantsWithCountryName.length === 0) {
             return next(errorHandler(404, 'No restaurants found!'));
         }
 
         res.status(200).json({
             country: country.name,
-            restaurants
+            restaurants: restaurantsWithCountryName
         });
     } catch (err) {
         next(err);
@@ -142,10 +172,17 @@ export const getRestaurantsByAverageCost = async (req, res, next) => {
         }
 
         const restaurants = await Restaurant.find({ averageCostForTwo: avgCost });
-        if (restaurants.length === 0) {
+
+        // Replace country ID with country name for each restaurant
+        const restaurantsWithCountryName = await Promise.all(restaurants.map(async restaurant => 
+            replaceCountryIdWithName(restaurant.toObject())
+        ));
+
+        if (restaurantsWithCountryName.length === 0) {
             return next(errorHandler(404, 'No restaurants found!'));
         }
-        res.status(200).json(restaurants);
+
+        res.status(200).json(restaurantsWithCountryName);
     } catch (err) {
         next(err);
     }
@@ -163,14 +200,19 @@ export const getRestaurantsByCuisines = async (req, res, next) => {
         const cuisinesArray = cuisine.split(',').map(cuisine => cuisine.trim());
 
         const restaurants = await Restaurant.find({
-            cuisines: { $in: cuisinesArray }
+            "cuisines.cuisine": { $in: cuisinesArray }
         }).exec();
 
-        if (restaurants.length === 0) {
+        // Replace country ID with country name for each restaurant
+        const restaurantsWithCountryName = await Promise.all(restaurants.map(async restaurant => 
+            replaceCountryIdWithName(restaurant.toObject())
+        ));
+
+        if (restaurantsWithCountryName.length === 0) {
             return next(errorHandler(404, 'No restaurants found for these cuisines'));
         }
 
-        res.status(200).json(restaurants);
+        res.status(200).json(restaurantsWithCountryName);
     } catch (err) {
         next(err);
     }
@@ -189,18 +231,23 @@ export const searchRestaurants = async (req, res, next) => {
             ...(searchTerm && { 
                 $or: [
                     { name: { $regex: searchTerm, $options: 'i' } },
-                    { city: { $regex: searchTerm, $options: 'i' } },
-                    { locality: { $regex: searchTerm, $options: 'i' } },
-                    { localityVerbose: { $regex: searchTerm, $options: 'i' } },
+                    { "location.city": { $regex: searchTerm, $options: 'i' } },
+                    { "location.locality": { $regex: searchTerm, $options: 'i' } },
+                    { "location.locality_verbose": { $regex: searchTerm, $options: 'i' } },
                 ]
              }),
         }).skip(skip).limit(limit);
 
-        if (restaurants.length === 0) {
+        // Replace country ID with country name for each restaurant
+        const restaurantsWithCountryName = await Promise.all(restaurants.map(async restaurant => 
+            replaceCountryIdWithName(restaurant.toObject())
+        ));
+
+        if (restaurantsWithCountryName.length === 0) {
             return next(errorHandler(404, 'No restaurants found matching the search query'));
         }
 
-        res.status(200).json(restaurants);
+        res.status(200).json(restaurantsWithCountryName);
     } catch (err) {
         next(err);
     }
