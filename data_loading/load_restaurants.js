@@ -99,7 +99,7 @@ async function uploadData(cleanedData) {
 
 async function main() {
   // Corrected path to the JSON file
-  const filePath = path.join('E:', 'ZomatoExplorer', 'data_loading', 'file3.json'); // Use path module
+  const filePath = path.join('E:', 'ZomatoExplorer', 'data_loading', 'file2.json'); // Use path module
 
   try {
     const jsonData = await loadJsonFile(filePath);
