@@ -16,6 +16,8 @@ const Homepage = () => {
 
     const [restaurants, setRestaurants] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
 
     const location = useLocation();
     const navigate = useNavigate();
@@ -30,6 +32,7 @@ const Homepage = () => {
         const longitudeFromUrl = urlParams.get('longitude') || '';
         const radiusFromUrl = urlParams.get('radius') || 3;
         const avgCostFromUrl = urlParams.get('avgCost') || 50;
+        const pageFromUrl = parseInt(urlParams.get('page')) || 1;
 
         setSideBarData({
             searchTerm: searchTermFromUrl,
@@ -41,6 +44,8 @@ const Homepage = () => {
             avgCost: avgCostFromUrl
         });
 
+        setCurrentPage(pageFromUrl);
+
         const fetchRestaurants = async () => {
             setLoading(true);
 
@@ -48,20 +53,21 @@ const Homepage = () => {
                 const searchQuery = `searchTerm=${searchTermFromUrl}`;
                 const countryQuery = `code=${countryFromUrl}`;
                 const avgCostQuery = `avgCost=${avgCostFromUrl}`;
+                const pageQuery = `page=${pageFromUrl}&limit=10`;
 
                 let apiCalls = [
-                    fetch(`/api/restaurants/search?${searchQuery}`),
-                    fetch(`/api/restaurants/filter/country/${countryFromUrl}`),
-                    fetch(`/api/restaurants/filter/spend/${avgCostFromUrl}`)
+                    fetch(`/api/restaurants/search?${searchQuery}&${pageQuery}`),
+                    fetch(`/api/restaurants/filter/country/${countryFromUrl}?${pageQuery}`),
+                    fetch(`/api/restaurants/filter/spend/${avgCostFromUrl}?${pageQuery}`)
                 ];
 
                 if (cuisineFromUrl) {
                     const cuisineQuery = `cuisine=${cuisineFromUrl}`;
-                    apiCalls.push(fetch(`/api/restaurants/filter/cuisines?${cuisineQuery}`));
+                    apiCalls.push(fetch(`/api/restaurants/filter/cuisines?${cuisineQuery}&${pageQuery}`));
                 }
 
                 if (latitudeFromUrl && longitudeFromUrl) {
-                    const locationQuery = `lat=${latitudeFromUrl}&long=${longitudeFromUrl}&radius=${radiusFromUrl}`;
+                    const locationQuery = `lat=${latitudeFromUrl}&long=${longitudeFromUrl}&radius=${radiusFromUrl}&${pageQuery}`;
                     apiCalls.push(fetch(`/api/restaurants/search/location?${locationQuery}`));
                 }
 
@@ -74,6 +80,10 @@ const Homepage = () => {
                 const uniqueRestaurants = Array.from(new Set(combinedData.map(item => item.restaurantId)))
                     .map(id => combinedData.find(item => item.restaurantId === id));
 
+                // Update the totalPages based on the response metadata or a default value
+                const total = response[0]?.headers.get('X-Total-Count') || uniqueRestaurants.length;
+                setTotalPages(Math.ceil(total / 10));
+
                 setRestaurants(uniqueRestaurants);
             } catch (error) {
                 console.error('Error fetching restaurant data:', error);
@@ -83,12 +93,12 @@ const Homepage = () => {
         };
 
         fetchRestaurants();
-    }, [location.search]);
+    }, [location.search, currentPage]);
 
     useEffect(() => {
         const query = new URLSearchParams(sideBarData).toString();
-        window.history.replaceState(null, '', `?${query}`);
-    }, [sideBarData]);
+        window.history.replaceState(null, '', `?${query}&page=${currentPage}`);
+    }, [sideBarData, currentPage]);
 
     const handleChange = (e) => {
         setSideBarData({
@@ -99,7 +109,12 @@ const Homepage = () => {
 
     const handleApplyFilters = () => {
         const query = new URLSearchParams(sideBarData).toString();
-        navigate(`?${query}`);
+        navigate(`?${query}&page=${currentPage}`);
+    }
+
+    const handlePageChange = (page) => {
+        if (page < 1 || page > totalPages) return; // Prevent invalid page numbers
+        setCurrentPage(page);
     }
 
     return (
@@ -121,16 +136,52 @@ const Homepage = () => {
                         <span className="font-bold text-sm pl-3">Loading...</span>
                     </div>
                 ) : (
-                    <div className="flex flex-col gap-4">
+                    <div>
                         {restaurants.length > 0 ? (
-                            restaurants.map((restaurant) => (
-                                <RestaurantCard 
-                                    key={restaurant._id} 
-                                    restaurant={restaurant} 
-                                />
-                            ))
+                            <>
+                                <div className="text-center mb-4">
+                                    <p className="text-xl font-semibold">Search Results</p>
+                                    <p className="text-lg">Showing results for "{sideBarData.searchTerm}"</p>
+                                    <p className="text-md">Total results: {restaurants.length}</p>
+                                </div>
+                                <div className="flex flex-col gap-4">
+                                    {restaurants.map((restaurant) => (
+                                        <RestaurantCard 
+                                            key={restaurant._id} 
+                                            restaurant={restaurant} 
+                                        />
+                                    ))}
+                                </div>
+                                <div className="flex justify-between mt-4">
+                                    <button
+                                        onClick={() => handlePageChange(currentPage - 1)}
+                                        disabled={currentPage <= 1}
+                                        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                                    >
+                                        Previous
+                                    </button>
+                                    <div className="flex gap-2 items-center">
+                                        {[...Array(totalPages)].map((_, index) => (
+                                            <button
+                                                key={index + 1}
+                                                onClick={() => handlePageChange(index + 1)}
+                                                className={`px-4 py-2 rounded ${currentPage === index + 1 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'} hover:bg-blue-500 hover:text-white`}
+                                            >
+                                                {index + 1}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <button
+                                        onClick={() => handlePageChange(currentPage + 1)}
+                                        disabled={currentPage >= totalPages}
+                                        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            </>
                         ) : (
-                            <div className="w-full flex items-center justify-center">There are no posts yet!</div>
+                            <p className="text-center text-gray-600">No restaurants found</p>
                         )}
                     </div>
                 )}
