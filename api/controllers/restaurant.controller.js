@@ -2,7 +2,7 @@ import { errorHandler } from '../utils/errorHandler.js';
 import Restaurant from '../models/restaurant.model.js';
 import Country from '../models/country.model.js';
 
-// Helper function to replace country ID with country name
+// function to replace country ID with country name
 const replaceCountryIdWithName = async (restaurant) => {
     if (restaurant.location && restaurant.location.country) {
         const country = await Country.findById(restaurant.location.country);
@@ -13,6 +13,14 @@ const replaceCountryIdWithName = async (restaurant) => {
         }
     }
     return restaurant;
+};
+
+// Helper function to get pagination options
+const getPaginationOptions = (req) => {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    return { page, limit, skip };
 };
 
 // Get restaurant by ID
@@ -33,9 +41,7 @@ export const getRestaurantById = async (req, res, next) => {
 // Get paginated list of restaurants
 export const getRestaurants = async (req, res, next) => {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const skip = (page - 1) * limit;
+        const { page, limit, skip } = getPaginationOptions(req);
 
         const restaurants = await Restaurant.find().skip(skip).limit(limit);
         const totalCount = await Restaurant.countDocuments();
@@ -99,6 +105,8 @@ export const searchRestaurantsByLocation = async (req, res, next) => {
         const radiusInKm = parseFloat(req.query.radius) || 3;
         const radiusInMeters = radiusInKm * 1000;
 
+        const { page, limit, skip } = getPaginationOptions(req);
+
         if (!lat || !long || isNaN(lat) || isNaN(long)) {
             return next(errorHandler(400, "Valid latitude and longitude are required"));
         }
@@ -112,12 +120,14 @@ export const searchRestaurantsByLocation = async (req, res, next) => {
         const restaurants = await Restaurant.find({
             "location.latitude": { $gte: minLat, $lte: maxLat },
             "location.longitude": { $gte: minLng, $lte: maxLng }
-        }).exec();
+        }).skip(skip).limit(limit).exec();
 
         // Filter results by distance to ensure they are within the radius
         const filteredRestaurants = restaurants.filter(restaurant =>
             haversineDistance(latitude, longitude, restaurant.location.latitude, restaurant.location.longitude) <= radiusInMeters
         );
+
+        const totalCount = filteredRestaurants.length;
 
         // Replace country ID with country name for each restaurant
         const restaurantsWithCountryName = await Promise.all(filteredRestaurants.map(async restaurant => 
@@ -128,7 +138,12 @@ export const searchRestaurantsByLocation = async (req, res, next) => {
             return res.status(200).json({ message: "No restaurants found!" });
         }
 
-        res.status(200).json(restaurantsWithCountryName);
+        res.status(200).json({
+            totalCount,
+            page,
+            limit,
+            data: restaurantsWithCountryName
+        });
     } catch (err) {
         next(err);
     }
@@ -138,12 +153,14 @@ export const searchRestaurantsByLocation = async (req, res, next) => {
 export const filterRestaurantsByCountry = async (req, res, next) => {
     try {
         const country = await Country.findOne({ code: req.params.code });
+        const { page, limit, skip } = getPaginationOptions(req);
 
         if (!country) {
             return next(errorHandler(404, 'Country not found for this code'));
         }
 
-        const restaurants = await Restaurant.find({ "location.country": country._id }).exec();
+        const restaurants = await Restaurant.find({ "location.country": country._id }).skip(skip).limit(limit).exec();
+        const totalCount = await Restaurant.countDocuments({ "location.country": country._id });
 
         // Replace country ID with country name for each restaurant
         const restaurantsWithCountryName = await Promise.all(restaurants.map(async restaurant => 
@@ -155,8 +172,11 @@ export const filterRestaurantsByCountry = async (req, res, next) => {
         }
 
         res.status(200).json({
+            totalCount,
             country: country.name,
-            restaurants: restaurantsWithCountryName
+            page,
+            limit,
+            data: restaurantsWithCountryName
         });
     } catch (err) {
         next(err);
@@ -167,11 +187,30 @@ export const filterRestaurantsByCountry = async (req, res, next) => {
 export const getRestaurantsByAverageCost = async (req, res, next) => {
     try {
         const avgCost = parseFloat(req.params.avgCost);
+        const { page, limit, skip } = getPaginationOptions(req);
+
         if (isNaN(avgCost)) {
             return next(errorHandler(400, 'Average cost must be a number'));
         }
 
-        const restaurants = await Restaurant.find({ averageCostForTwo: avgCost });
+        const countryCode = req.query.country;
+        let countryFilter = {};
+        if (countryCode) {
+            const country = await Country.findOne({ code: countryCode });
+            if (!country) {
+                return next(errorHandler(404, "Country not found"));
+            }
+            countryFilter = { "location.country": country._id };
+        }
+
+        const restaurants = await Restaurant.find({
+            averageCostForTwo: avgCost,
+            ...countryFilter
+        }).skip(skip).limit(limit);
+        const totalCount = await Restaurant.countDocuments({
+            averageCostForTwo: avgCost,
+            ...countryFilter
+        });
 
         // Replace country ID with country name for each restaurant
         const restaurantsWithCountryName = await Promise.all(restaurants.map(async restaurant => 
@@ -182,7 +221,12 @@ export const getRestaurantsByAverageCost = async (req, res, next) => {
             return next(errorHandler(404, 'No restaurants found!'));
         }
 
-        res.status(200).json(restaurantsWithCountryName);
+        res.status(200).json({
+            totalCount,
+            page,
+            limit,
+            data: restaurantsWithCountryName
+        });
     } catch (err) {
         next(err);
     }
@@ -192,6 +236,7 @@ export const getRestaurantsByAverageCost = async (req, res, next) => {
 export const getRestaurantsByCuisines = async (req, res, next) => {
     try {
         const { cuisine } = req.query;
+        const { page, limit, skip } = getPaginationOptions(req);
 
         if (!cuisine) {
             return res.status(400).json({ message: 'Cuisines parameter is required' });
@@ -199,9 +244,24 @@ export const getRestaurantsByCuisines = async (req, res, next) => {
 
         const cuisinesArray = cuisine.split(',').map(cuisine => cuisine.trim());
 
+        const countryCode = req.query.country;
+        let countryFilter = {};
+        if (countryCode) {
+            const country = await Country.findOne({ code: countryCode });
+            if (!country) {
+                return next(errorHandler(404, "Country not found"));
+            }
+            countryFilter = { "location.country": country._id };
+        }
+
         const restaurants = await Restaurant.find({
-            "cuisines.cuisine": { $in: cuisinesArray }
-        }).exec();
+            "cuisines.cuisine": { $in: cuisinesArray },
+            ...countryFilter
+        }).skip(skip).limit(limit).exec();
+        const totalCount = await Restaurant.countDocuments({
+            "cuisines.cuisine": { $in: cuisinesArray },
+            ...countryFilter
+        });
 
         // Replace country ID with country name for each restaurant
         const restaurantsWithCountryName = await Promise.all(restaurants.map(async restaurant => 
@@ -212,7 +272,12 @@ export const getRestaurantsByCuisines = async (req, res, next) => {
             return next(errorHandler(404, 'No restaurants found for these cuisines'));
         }
 
-        res.status(200).json(restaurantsWithCountryName);
+        res.status(200).json({
+            totalCount,
+            page,
+            limit,
+            data: restaurantsWithCountryName
+        });
     } catch (err) {
         next(err);
     }
@@ -221,11 +286,18 @@ export const getRestaurantsByCuisines = async (req, res, next) => {
 // Search restaurants by various fields
 export const searchRestaurants = async (req, res, next) => {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const skip = (page - 1) * limit;
-
+        const { page, limit, skip } = getPaginationOptions(req);
         const searchTerm = req.query.searchTerm ? req.query.searchTerm.trim() : '';
+
+        const countryCode = req.query.country;
+        let countryFilter = {};
+        if (countryCode) {
+            const country = await Country.findOne({ code: countryCode });
+            if (!country) {
+                return next(errorHandler(404, "Country not found"));
+            }
+            countryFilter = { "location.country": country._id };
+        }
 
         const restaurants = await Restaurant.find({
             ...(searchTerm && { 
@@ -236,7 +308,19 @@ export const searchRestaurants = async (req, res, next) => {
                     { "location.locality_verbose": { $regex: searchTerm, $options: 'i' } },
                 ]
              }),
+            ...countryFilter
         }).skip(skip).limit(limit);
+        const totalCount = await Restaurant.countDocuments({
+            ...(searchTerm && { 
+                $or: [
+                    { name: { $regex: searchTerm, $options: 'i' } },
+                    { "location.city": { $regex: searchTerm, $options: 'i' } },
+                    { "location.locality": { $regex: searchTerm, $options: 'i' } },
+                    { "location.locality_verbose": { $regex: searchTerm, $options: 'i' } },
+                ]
+             }),
+            ...countryFilter
+        });
 
         // Replace country ID with country name for each restaurant
         const restaurantsWithCountryName = await Promise.all(restaurants.map(async restaurant => 
@@ -247,7 +331,12 @@ export const searchRestaurants = async (req, res, next) => {
             return next(errorHandler(404, 'No restaurants found matching the search query'));
         }
 
-        res.status(200).json(restaurantsWithCountryName);
+        res.status(200).json({
+            totalCount,
+            page,
+            limit,
+            data: restaurantsWithCountryName
+        });
     } catch (err) {
         next(err);
     }

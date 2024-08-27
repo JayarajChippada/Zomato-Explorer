@@ -10,11 +10,11 @@ const Header = () => {
     const [sideBarData, setSideBarData] = useState({
         searchTerm: '',
         cuisine: '',
-        country: 32,
+        country: 30,
         latitude: '',
         longitude: '',
         radius: '',
-        avgCost: 5
+        avgCost: 0
     });
 
     const location = useLocation();
@@ -42,7 +42,7 @@ const Header = () => {
     const handleApplyFilters = (e) => {
         e.preventDefault();
         const query = new URLSearchParams(sideBarData).toString();
-        navigate(`/search?${query}`);
+        navigate(`/search?${query}&page=${1}`);
     };
 
     useEffect(() => {
@@ -53,11 +53,11 @@ const Header = () => {
         setSideBarData({
             searchTerm: searchTermFromUrl,
             cuisine: urlParams.get('cuisine') || '',
-            country: urlParams.get('country') || 32,
+            country: urlParams.get('country') || 30,
             latitude: urlParams.get('latitude') || '',
             longitude: urlParams.get('longitude') || '',
             radius: urlParams.get('radius') || '',
-            avgCost: urlParams.get('avgCost') || 5
+            avgCost: urlParams.get('avgCost') || 0
         });
     }, [location.search]);
 

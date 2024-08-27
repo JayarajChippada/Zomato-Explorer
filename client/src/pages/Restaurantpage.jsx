@@ -7,7 +7,7 @@ const RestaurantPage = () => {
   const { restaurantId } = useParams();
   const [restaurant, setRestaurant] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setErrorMessage] = useState(null);
 
   useEffect(() => {
     const fetchRestaurant = async () => {
@@ -19,7 +19,7 @@ const RestaurantPage = () => {
         const data = await response.json();
         setRestaurant(data);
       } catch (error) {
-        setError(error.message);
+        setErrorMessage(error.message);
       } finally {
         setLoading(false);
       }

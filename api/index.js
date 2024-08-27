@@ -2,12 +2,11 @@ import express from 'express';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
-import path from 'path';
 dotenv.config();
 
 // import routes
 import restaurantRoutes from './routes/restaurant.route.js';
-const __dirname = path.resolve();
+
 
 const app = express();
 
@@ -30,11 +29,6 @@ app.listen(process.env.PORT || 3000, () => {
 // routes
 app.use('/api/restaurants', restaurantRoutes);
 
-app.use(express.static(path.join(__dirname, '/client/dist')));
-
-app.get('*', (req, res)=>{
-    res.sendFile(path.join(__dirname, 'client', 'dist', 'index.html'));
-})
 
 // middleware
 app.use((error, req, res, next) => {
