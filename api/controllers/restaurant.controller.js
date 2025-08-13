@@ -193,7 +193,7 @@ export const getRestaurantsByAverageCost = async (req, res, next) => {
             return next(errorHandler(400, 'Average cost must be a number'));
         }
 
-        const countryCode = req.query.country;
+        const countryCode = req.query.country || 1;
         let countryFilter = {};
         if (countryCode) {
             const country = await Country.findOne({ code: countryCode });
