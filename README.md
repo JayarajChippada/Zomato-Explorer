@@ -1,27 +1,72 @@
-[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/0mcQpGXT)
-# Project Assignment: Zomato Restaurant Listing & Searching
- 
-## Key Use Cases
- 
-### Data Loading
-Create an independent script to load the Zomato restaurant data available [here](https://www.kaggle.com/datasets/shrutimehta/zomato-restaurants-data) into a database.
- 
-### Web API Service
-Develop a web API service with the following endpoints to serve the content loaded in the previous step:
-  - **Get Restaurant by ID**: Retrieve details of a specific restaurant by its ID.
-  - **Get List of Restaurants**: Fetch a list of restaurants with pagination support.
- 
-### User Interface
-Develop a web application with the following pages, which must connect to the web API service:
-  - **Restaurant List Page**: Display a list of restaurants. Clicking on a restaurant should navigate the user to the restaurant's detail page.
-  - **Restaurant Detail Page**: Show details of a specific restaurant.
-  - **Location search**: Search restaurants in given latitude and longitude range (e.g restaurants in 3 km of a given latitude and longitude)
-  - **Image search**: Upload an image of a food like icecream, pasta etc., and search restaurants which offer those cuisines.
+# 🍽️ Zomato Restaurant Explorer
 
-## Additional Use Cases (Optional)
-If time allows, implement the following additional features, ensuring they are supported in both the API and the UI:
-- **Filtering Options**:
+A full-stack application to explore and search restaurants from the **Zomato Restaurants Dataset** ([Kaggle link](https://www.kaggle.com/datasets/shrutimehta/zomato-restaurants-data)) with advanced filtering, location-based search, and pagination support.
+
+## 📜 Table of Contents
+- [Overview](#-overview)
+- [Features](#-features)
+- [Tech Stack](#-tech-stack)
+- [Project Structure](#-project-structure)
+- [Setup Instructions](#-setup-instructions)
+- [API Endpoints](#-api-endpoints)
+- [UI Pages](#-ui-pages)
+- [Future Enhancements](#-future-enhancements)
+- [Screenshots](#-screenshots)
+
+---
+
+## 📌 Overview
+
+This project is designed to:
+1. Load the **Zomato Restaurant dataset** into a database.
+2. Serve the restaurant data through a RESTful **Web API**.
+3. Provide an interactive **Web Application** for users to browse, filter, and search restaurants.
+
+The application is modular and built in three main parts:
+- **Data Loader Script** — Loads dataset into the database.
+- **Web API Service** — Exposes endpoints for data retrieval and searching.
+- **Frontend UI** — Connects to API to display restaurants with a clean user interface.
+
+---
+
+## ✨ Features
+
+### Core Features
+- **Restaurant List & Detail View**
+- **Pagination Support**
+- **Get Restaurant by ID**
+- **Search by Location** (latitude/longitude with radius filter)
+- **Filter Options**:
   - By Country
   - By Average Spend for Two People
-  - By Cuisines
-- **Search Functionality**: Enable search for restaurants by name and description.
+  - By Cuisine Types
+- **Search by Name/Description**
+
+### Optional Features Implemented
+- ✅ Country-based filtering  
+- ✅ Cuisine filtering  
+- ✅ Average cost filtering  
+- ✅ Name & description search  
+
+### Missing Feature (Future Plan)
+- 🔄 Image Search: Upload a food image (e.g., ice cream, pasta) and find restaurants offering similar cuisines.
+
+---
+
+## 🛠 Tech Stack
+
+**Backend**:
+- Node.js / Express.js (API Service)
+- MongoDB (Database)
+- Mongoose 
+
+**Frontend**:
+- React.js + TailwindCSS
+- React Router (Navigation)
+
+**Other**:
+- CSV Parsing (Data Loader Script)
+- Postman (API testing)
+
+---
+
