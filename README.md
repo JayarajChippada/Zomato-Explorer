@@ -6,13 +6,6 @@ A full-stack application to explore and search restaurants from the **Zomato Res
 - [Overview](#-overview)
 - [Features](#-features)
 - [Tech Stack](#-tech-stack)
-- [Project Structure](#-project-structure)
-- [Setup Instructions](#-setup-instructions)
-- [API Endpoints](#-api-endpoints)
-- [UI Pages](#-ui-pages)
-- [Future Enhancements](#-future-enhancements)
-- [Screenshots](#-screenshots)
-
 ---
 
 ## 📌 Overview
@@ -68,5 +61,4 @@ The application is modular and built in three main parts:
 - CSV Parsing (Data Loader Script)
 - Postman (API testing)
 
----
 
