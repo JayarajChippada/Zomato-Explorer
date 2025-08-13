@@ -61,4 +61,32 @@ The application is modular and built in three main parts:
 - CSV Parsing (Data Loader Script)
 - Postman (API testing)
 
+---
+
+## 🤝 Contribution
+
+We welcome contributions! If you'd like to improve the project, follow these steps:
+
+1. Fork the repository.
+2. Create a new branch (`git checkout -b feature-name`).
+3. Commit your changes (`git commit -m 'Added feature'`).
+4. Push the branch (`git push origin feature-name`).
+5. Open a Pull Request for review.
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
+
+---
+
+## 📬 Contact
+
+If you have any questions or suggestions, feel free to contact me at:
+
+✉️ **Email**: [jayarajchippada4@gmail.com](mailto:jayarajchippada4@gmail.com)
+
+---
+
 
